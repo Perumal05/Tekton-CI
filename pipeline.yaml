@@ -1,13 +1,15 @@
 apiVersion: tekton.dev/v1
 kind: Pipeline
 metadata:
-  name: java-pipeline
+  name: java-ci-pipeline
 spec:
 
   params:
     - name: repo-url
       type: string
-    - name: revision
+    - name: git-revision
+      type: string
+    - name: image-tag
       type: string
 
   workspaces:
@@ -15,19 +17,52 @@ spec:
 
   tasks:
 
-    - name: clone-repository
+    - name: validate-params
+      taskRef:
+        name: validate-params-task
+      params:
+        - name: repo-url
+          value: $(params.repo-url)
+        - name: git-revision
+          value: $(params.git-revision)
+        - name: image-tag
+          value: $(params.image-tag)
+
+    - name: clone-repo
+      runAfter:
+        - validate-params
       taskRef:
         name: git-clone-task
       params:
         - name: repo-url
           value: $(params.repo-url)
+        - name: git-revision
+          value: $(params.git-revision)
       workspaces:
         - name: output
           workspace: shared-workspace
 
-    - name: sonar-analysis
+    - name: maven-build
       runAfter:
-        - clone-repository
+        - clone-repo
+      taskRef:
+        name: maven-build-task
+      workspaces:
+        - name: source
+          workspace: shared-workspace
+
+    - name: unit-test
+      runAfter:
+        - maven-build
+      taskRef:
+        name: unit-test-task
+      workspaces:
+        - name: source
+          workspace: shared-workspace
+
+    - name: sonar-scan
+      runAfter:
+        - unit-test
       taskRef:
         name: sonar-scan-task
       workspaces:

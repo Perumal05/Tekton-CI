@@ -45,6 +45,9 @@ spec:
           -Dsonar.organization=$SONAR_ORG \
           -Dsonar.host.url=$SONAR_HOST_URL \
           -Dsonar.login=$SONAR_TOKEN \
-          -Dsonar.sources=.
+          -Dsonar.sources=src/main/java \
+          -Dsonar.tests=src/test/java \
+          -Dsonar.java.binaries=target/classes \
+          -Dsonar.exclusions=**/*.html,**/*.js,**/*.css
 
         echo "SonarCloud scan completed"

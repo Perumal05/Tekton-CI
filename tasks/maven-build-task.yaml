@@ -1,0 +1,21 @@
+apiVersion: tekton.dev/v1
+kind: Task
+metadata:
+  name: maven-build-task
+spec:
+  workspaces:
+    - name: source
+
+  steps:
+    - name: maven-build
+      image: maven:3.9-eclipse-temurin-21
+      workingDir: /workspace/source
+      script: |
+        #!/bin/sh
+        set -e
+
+        echo "Starting Maven build..."
+
+        mvn clean compile -B
+
+        echo "Maven build completed."
