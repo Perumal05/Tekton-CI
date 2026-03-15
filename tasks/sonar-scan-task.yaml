@@ -1,0 +1,50 @@
+apiVersion: tekton.dev/v1
+kind: Task
+metadata:
+  name: sonar-scan-task
+spec:
+  workspaces:
+    - name: source
+
+  steps:
+    - name: sonar-scan
+      image: sonarsource/sonar-scanner-cli:latest
+
+      env:
+        - name: SONAR_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: sonar-config
+              key: SONAR_TOKEN
+
+        - name: SONAR_HOST_URL
+          valueFrom:
+            secretKeyRef:
+              name: sonar-config
+              key: SONAR_HOST_URL
+
+        - name: SONAR_ORG
+          valueFrom:
+            secretKeyRef:
+              name: sonar-config
+              key: SONAR_ORG
+
+        - name: SONAR_PROJECT_KEY
+          valueFrom:
+            secretKeyRef:
+              name: sonar-config
+              key: SONAR_PROJECT_KEY
+
+      script: |
+        echo "Starting SonarCloud scan..."
+
+        cd /workspace/source
+
+        sonar-scanner \
+          -Dsonar.projectKey=$SONAR_PROJECT_KEY \
+          -Dsonar.organization=$SONAR_ORG \
+          -Dsonar.host.url=$SONAR_HOST_URL \
+          -Dsonar.login=$SONAR_TOKEN \
+          -Dsonar.sources=.
+
+        echo "SonarCloud scan completed"
