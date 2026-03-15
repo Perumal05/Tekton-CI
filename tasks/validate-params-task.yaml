@@ -1,0 +1,38 @@
+apiVersion: tekton.dev/v1
+kind: Task
+metadata:
+  name: validate-params-task
+spec:
+  params:
+    - name: repo-url
+      type: string
+    - name: git-revision
+      type: string
+    - name: image-tag
+      type: string
+
+  steps:
+    - name: validate
+      image: alpine:3.19
+      script: |
+        #!/bin/sh
+        set -e
+
+        echo "Validating pipeline parameters..."
+
+        if [ -z "$(params.repo-url)" ]; then
+          echo "ERROR: repo-url is required"
+          exit 1
+        fi
+
+        if [ -z "$(params.git-revision)" ]; then
+          echo "ERROR: git-revision is required"
+          exit 1
+        fi
+
+        if [ -z "$(params.image-tag)" ]; then
+          echo "ERROR: image-tag is required"
+          exit 1
+        fi
+
+        echo "All parameters validated successfully."

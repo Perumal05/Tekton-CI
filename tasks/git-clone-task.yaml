@@ -6,9 +6,8 @@ spec:
   params:
     - name: repo-url
       type: string
-    - name: revision
+    - name: git-revision
       type: string
-      default: main
 
   workspaces:
     - name: output
@@ -17,8 +16,14 @@ spec:
     - name: clone
       image: alpine/git:latest
       script: |
+        #!/bin/sh
+        set -e
+
         echo "Cloning repository..."
+
         git clone $(params.repo-url) /workspace/output
+
         cd /workspace/output
-        git checkout $(params.revision)
-        echo "Repository cloned successfully"
+        git checkout $(params.git-revision)
+
+        echo "Repository cloned successfully."
