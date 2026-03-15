@@ -1,0 +1,24 @@
+apiVersion: tekton.dev/v1
+kind: PipelineRun
+metadata:
+  name: sonar-pipeline-run
+spec:
+
+  pipelineRef:
+    name: java-pipeline
+
+  params:
+    - name: repo-url
+      value: https://github.com/Perumal05/Springboot-InMemoryUser.git
+    - name: revision
+      value: main 
+
+  workspaces:
+    - name: shared-workspace
+      volumeClaimTemplate:
+        spec:
+          accessModes:
+            - ReadWriteOnce
+          resources:
+            requests:
+              storage: 1Gi

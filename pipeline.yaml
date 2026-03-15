@@ -1,0 +1,35 @@
+apiVersion: tekton.dev/v1
+kind: Pipeline
+metadata:
+  name: java-pipeline
+spec:
+
+  params:
+    - name: repo-url
+      type: string
+    - name: revision
+      type: string
+
+  workspaces:
+    - name: shared-workspace
+
+  tasks:
+
+    - name: clone-repository
+      taskRef:
+        name: git-clone-task
+      params:
+        - name: repo-url
+          value: $(params.repo-url)
+      workspaces:
+        - name: output
+          workspace: shared-workspace
+
+    - name: sonar-analysis
+      runAfter:
+        - clone-repository
+      taskRef:
+        name: sonar-scan-task
+      workspaces:
+        - name: source
+          workspace: shared-workspace
