@@ -1,0 +1,102 @@
+apiVersion: tekton.dev/v1
+kind: Task
+metadata:
+  name: generate-java-dockerfile-task
+spec:
+  workspaces:
+    - name: source
+
+  steps:
+    - name: detect-and-generate
+      image: alpine:3.19
+      workingDir: /workspace/source
+      script: |
+        #!/bin/sh
+        set -e
+
+        echo "🔍 Detecting Java project..."
+
+        BUILD_TOOL=""
+        ARTIFACT_PATH=""
+        ARTIFACT_TYPE="jar"
+        JAVA_VERSION="21"
+        PORT="8080"
+
+        # Detect build tool
+        if [ -f pom.xml ]; then
+          BUILD_TOOL="maven"
+          ARTIFACT_PATH="target"
+          echo "Detected Maven project"
+
+          # Try to detect Java version
+          JAVA_VERSION=$(grep -oPm1 "(?<=<maven.compiler.target>)[^<]+" pom.xml || echo "21")
+
+        elif [ -f build.gradle ] || [ -f build.gradle.kts ]; then
+          BUILD_TOOL="gradle"
+          ARTIFACT_PATH="build/libs"
+          echo "Detected Gradle project"
+
+          JAVA_VERSION=$(grep -oP "sourceCompatibility\s*=\s*['\"]?\K[0-9]+" build.gradle 2>/dev/null || echo "21")
+
+        else
+          echo "❌ Unknown Java project"
+          exit 1
+        fi
+
+
+        # Detect WAR packaging
+        if ls $ARTIFACT_PATH/*.war 1> /dev/null 2>&1; then
+          ARTIFACT_TYPE="war"
+        fi
+
+
+        # Detect Spring Boot port
+        if [ -f src/main/resources/application.properties ]; then
+          PORT=$(grep -oP "(?<=server.port=)[0-9]+" src/main/resources/application.properties || echo "8080")
+        fi
+
+        if [ -f src/main/resources/application.yml ]; then
+          PORT=$(grep -A1 "server:" src/main/resources/application.yml | grep port | awk '{print $2}' || echo "8080")
+        fi
+
+
+        echo "-----------------------------------"
+        echo "Build Tool : $BUILD_TOOL"
+        echo "Artifact   : $ARTIFACT_TYPE"
+        echo "Java       : $JAVA_VERSION"
+        echo "Port       : $PORT"
+        echo "-----------------------------------"
+
+
+        if [ -f Dockerfile ]; then
+          echo "Dockerfile already exists"
+          exit 0
+        fi
+
+        echo "⚙️ Generating Dockerfile..."
+
+
+        # WAR deployment
+        if [ "$ARTIFACT_TYPE" = "war" ]; then
+
+        cat <<EOF > Dockerfile
+        FROM tomcat:10.1-jdk${JAVA_VERSION}
+        COPY ${ARTIFACT_PATH}/*.war /usr/local/tomcat/webapps/app.war
+        EXPOSE ${PORT}
+        CMD ["catalina.sh","run"]
+        EOF
+
+        else
+
+        cat <<EOF > Dockerfile
+        FROM eclipse-temurin:${JAVA_VERSION}-jre
+        WORKDIR /app
+        COPY ${ARTIFACT_PATH}/*.jar app.jar
+        EXPOSE ${PORT}
+        ENTRYPOINT ["java","-jar","/app/app.jar"]
+        EOF
+
+        fi
+
+
+        echo "✅ Dockerfile generated successfully"

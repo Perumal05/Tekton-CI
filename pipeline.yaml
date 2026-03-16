@@ -9,7 +9,9 @@ spec:
       type: string
     - name: git-revision
       type: string
-    - name: image-tag
+    - name: image_repo
+      type: string
+    - name: image_temp_repo
       type: string
     - name: severity
       type: string
@@ -19,22 +21,22 @@ spec:
 
   tasks:
 
-    - name: validate-params
-      taskRef:
-        name: validate-params-task
-      params:
-        - name: repo-url
-          value: $(params.repo-url)
-        - name: git-revision
-          value: $(params.git-revision)
-        - name: image-tag
-          value: $(params.image-tag)
-        - name: severity
-          value: $(params.severity)
+    # - name: validate-params
+    #   taskRef:
+    #     name: validate-params-task
+    #   params:
+    #     - name: repo-url
+    #       value: $(params.repo-url)
+    #     - name: git-revision
+    #       value: $(params.git-revision)
+    #     - name: image-tag
+    #       value: $(params.image-tag)
+    #     - name: severity
+    #       value: $(params.severity)
 
     - name: clone-repo
-      runAfter:
-        - validate-params
+      # runAfter:
+      #   - validate-params
       taskRef:
         name: git-clone-task
       params:
@@ -55,32 +57,71 @@ spec:
         - name: source
           workspace: shared-workspace
 
-    - name: unit-test
+    # - name: unit-test
+    #   runAfter:
+    #     - maven-build
+    #   taskRef:
+    #     name: unit-test-task
+    #   workspaces:
+    #     - name: source
+    #       workspace: shared-workspace
+
+    # - name: sonar-scan
+    #   runAfter:
+    #     - unit-test
+    #   taskRef:
+    #     name: sonar-scan-task
+    #   workspaces:
+    #     - name: source
+    #       workspace: shared-workspace
+
+    # - name: trivy-fs-scan
+    #   runAfter:
+    #     - sonar-scan
+    #   taskRef:
+    #     name: trivy-fs-scan-task
+    #   params:
+    #     - name: severity
+    #       value: $(params.severity)
+    #   workspaces:
+    #     - name: source
+    #       workspace: shared-workspace
+
+    - name: generate-java-dockerfile
       runAfter:
         - maven-build
       taskRef:
-        name: unit-test-task
+        name: generate-java-dockerfile-task
       workspaces:
         - name: source
           workspace: shared-workspace
 
-    - name: sonar-scan
+    - name: build-image
       runAfter:
-        - unit-test
+        - generate-java-dockerfile
       taskRef:
-        name: sonar-scan-task
-      workspaces:
-        - name: source
-          workspace: shared-workspace
-
-    - name: trivy-fs-scan
-      runAfter:
-        - sonar-scan
-      taskRef:
-        name: trivy-fs-scan-task
+        name: build-image-task
       params:
-        - name: severity
-          value: $(params.severity)
+        - name: image_repo
+          value: $(params.image_repo)
+        - name: image_temp_repo
+          value: $(params.image_temp_repo)
+        - name: image_tag
+          value: $(tasks.clone-repo.results.short-commit)
+      workspaces:
+        - name: source
+          workspace: shared-workspace
+
+    - name: container-scan
+      runAfter:
+        - build-image
+      taskRef:
+        name: container-scan-task
+      params:
+        - name: image_temp_repo
+          value: $(params.image_temp_repo)
+        - name: image_tag
+          value: $(tasks.clone-repo.results.short-commit)
       workspaces:
         - name: source
           workspace: shared-workspace

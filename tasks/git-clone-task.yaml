@@ -8,22 +8,36 @@ spec:
       type: string
     - name: git-revision
       type: string
+      default: main
 
   workspaces:
     - name: output
 
+  results:
+    - name: commit
+      description: Full git commit SHA
+    - name: short-commit
+      description: Short git commit SHA
+
   steps:
     - name: clone
       image: alpine/git:latest
+      workingDir: /workspace/output
       script: |
         #!/bin/sh
         set -e
 
         echo "Cloning repository..."
 
-        git clone $(params.repo-url) /workspace/output
+        git clone --depth 1 --branch $(params.git-revision) $(params.repo-url) .
 
-        cd /workspace/output
-        git checkout $(params.git-revision)
+        COMMIT=$(git rev-parse HEAD)
+        SHORT_COMMIT=$(git rev-parse --short HEAD)
+
+        echo "Commit: $COMMIT"
+        echo "Short Commit: $SHORT_COMMIT"
+
+        echo -n "$COMMIT" > $(results.commit.path)
+        echo -n "$SHORT_COMMIT" > $(results.short-commit.path)
 
         echo "Repository cloned successfully."

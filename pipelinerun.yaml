@@ -13,8 +13,11 @@ spec:
     - name: git-revision
       value: main
 
-    - name: image-tag
-      value: v1
+    - name: image_repo
+      value: perumal1804/springboot-app
+
+    - name: image_temp_repo
+      value: perumal1804/springboot-temporary
 
     - name: severity
       value: "CRITICAL"

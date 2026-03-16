@@ -1,0 +1,68 @@
+apiVersion: tekton.dev/v1
+kind: Task
+metadata:
+  name: container-scan-task
+spec:
+  params:
+    - name: image_temp_repo
+      type: string
+
+    - name: image_tag
+      type: string
+
+  steps:
+    - name: trivy-scan
+      image: aquasec/trivy:0.50.0
+      script: |
+        #!/bin/sh
+        set -e
+
+        # Combine repo and tag to get full image name
+        IMAGE="$(params.image_temp_repo):$(params.image_tag)"
+
+        echo "Scanning container image: $IMAGE"
+
+        # Scan directly from temporary registry
+        trivy image \
+          --severity CRITICAL,HIGH \
+          --exit-code 1 \
+          --no-progress \
+          $IMAGE
+
+        echo "Image scan completed successfully"
+---
+
+apiVersion: tekton.dev/v1
+kind: Task
+metadata:
+  name: container-scan-task
+spec:
+  params:
+    - name: image_temp_repo
+      type: string
+      description: "Temporary Docker repository (e.g., perumal1804/sprinboot-temporary)"
+    - name: image_tag
+      type: string
+      description: "Tag for the image (from docker-build-task)"
+
+  steps:
+    - name: trivy-scan
+      image: aquasec/trivy:0.50.0
+      workingDir: /workspace   # optional but safer
+      script: |
+        #!/bin/sh
+        set -e
+
+        # Combine repo and tag
+        IMAGE="$(params.image_temp_repo):$(params.image_tag)"
+
+        echo "Scanning container image: $IMAGE"
+
+        # Scan directly from temporary registry
+        trivy image \
+          --severity CRITICAL,HIGH \
+          --exit-code 1 \
+          --no-progress \
+          $IMAGE
+
+        echo "Image scan completed successfully"
