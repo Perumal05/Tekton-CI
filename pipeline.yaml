@@ -11,6 +11,8 @@ spec:
       type: string
     - name: image-tag
       type: string
+    - name: severity
+      type: string
 
   workspaces:
     - name: shared-workspace
@@ -27,6 +29,8 @@ spec:
           value: $(params.git-revision)
         - name: image-tag
           value: $(params.image-tag)
+        - name: severity
+          value: $(params.severity)
 
     - name: clone-repo
       runAfter:
@@ -65,6 +69,18 @@ spec:
         - unit-test
       taskRef:
         name: sonar-scan-task
+      workspaces:
+        - name: source
+          workspace: shared-workspace
+
+    - name: trivy-fs-scan
+      runAfter:
+        - sonar-scan
+      taskRef:
+        name: trivy-fs-scan-task
+      params:
+        - name: severity
+          value: $(params.severity)
       workspaces:
         - name: source
           workspace: shared-workspace

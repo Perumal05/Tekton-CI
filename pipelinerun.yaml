@@ -16,6 +16,9 @@ spec:
     - name: image-tag
       value: v1
 
+    - name: severity
+      value: "CRITICAL"
+
   workspaces:
     - name: shared-workspace
       volumeClaimTemplate:

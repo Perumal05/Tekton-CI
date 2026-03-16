@@ -1,0 +1,30 @@
+apiVersion: tekton.dev/v1
+kind: Task
+metadata:
+  name: trivy-fs-scan-task
+spec:
+  workspaces:
+    - name: source
+
+  params:
+    - name: severity
+      type: string
+      default: "CRITICAL,HIGH"
+
+  steps:
+    - name: trivy-scan
+      image: aquasec/trivy:latest
+      workingDir: /workspace/source
+      script: |
+        #!/bin/sh
+        set -e
+
+        echo "Starting Trivy filesystem scan..."
+
+        trivy fs \
+          --severity $(params.severity) \
+          --exit-code 1 \
+          --no-progress \
+          .
+
+        echo "Trivy scan completed"
