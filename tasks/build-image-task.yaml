@@ -1,0 +1,44 @@
+apiVersion: tekton.dev/v1
+kind: Task
+metadata:
+  name: build-image-task
+spec:
+  params:
+    - name: image_repo
+      type: string
+    - name: image_tag
+      type: string
+    - name: image_temp_repo
+      type: string
+
+  workspaces:
+    - name: source
+
+  results:
+    - name: image-tar
+      description: Path to the saved Docker image tar file
+
+  steps:
+    - name: kaniko-build
+      image: gcr.io/kaniko-project/executor:v1.23.2
+      workingDir: $(workspaces.source.path)
+      env:
+        # Kaniko reads Docker credentials from DOCKER_CONFIG
+        - name: DOCKER_CONFIG
+          value: /kaniko/.docker
+      args:
+        - "--context=$(workspaces.source.path)"
+        - "--dockerfile=$(workspaces.source.path)/Dockerfile"
+        - "--destination=$(params.image_temp_repo):$(params.image_tag)"
+      volumeMounts:
+        - name: docker-config
+          mountPath: /kaniko/.docker
+
+  volumes:
+    - name: docker-config
+      secret:
+        secretName: dockerhub-secret
+        # Important: this makes the .dockerconfigjson available as config.json inside the mount
+        items:
+          - key: .dockerconfigjson
+            path: config.json
