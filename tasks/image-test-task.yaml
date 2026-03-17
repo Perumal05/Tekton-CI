@@ -1,0 +1,62 @@
+apiVersion: tekton.dev/v1
+kind: Task
+metadata:
+  name: image-test-task
+spec:
+  params:
+    - name: image_temp_repo
+      type: string
+      description: "Temporary built image repository"
+    - name: image_tag
+      type: string
+      description: "Temporary built image tag"
+    - name: port
+      type: string
+      description: "Port exposed by the application"
+
+  workspaces:
+    - name: source
+
+  steps:
+    - name: run-container
+      image: docker:24.0
+      workingDir: /workspace
+      script: |
+        #!/bin/sh
+        set -e
+
+        IMAGE="$(params.image_temp_repo):$(params.image_tag)"
+        PORT="$(params.port)"
+
+        echo "🟢 Running container $IMAGE on port $PORT"
+        docker run -d --name app-test -p $PORT:$PORT $IMAGE
+
+        echo "⏳ Waiting for app to start..."
+        sleep 10
+
+    - name: test-endpoint
+      image: curlimages/curl:8.3.0
+      script: |
+        #!/bin/sh
+        set -e
+
+        PORT="$(params.port)"
+        ENDPOINT="http://localhost:$PORT/health"
+
+        echo "🔎 Testing endpoint $ENDPOINT"
+        STATUS_CODE=$(curl -s -o /dev/null -w "%{http_code}" $ENDPOINT)
+
+        if [ "$STATUS_CODE" -ne 200 ]; then
+          echo "❌ Test failed! Status code: $STATUS_CODE"
+          exit 1
+        fi
+
+        echo "✅ Test passed! Status code: $STATUS_CODE"
+
+    - name: cleanup
+      image: docker:24.0
+      script: |
+        #!/bin/sh
+        echo "🧹 Cleaning up test container..."
+        docker stop app-test || true
+        docker rm app-test || true

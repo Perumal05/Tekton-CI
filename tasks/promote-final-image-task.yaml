@@ -1,0 +1,95 @@
+apiVersion: tekton.dev/v1
+kind: Task
+metadata:
+  name: promote-final-image-task
+  namespace: java-pipeline
+spec:
+  params:
+    - name: image_temp_repo
+      type: string
+    - name: image_repo
+      type: string
+    - name: image_tag
+      type: string
+
+  steps:
+    # ✅ Promote image using Skopeo (with explicit auth)
+    - name: promote-image
+      image: quay.io/skopeo/stable:latest
+      env:
+        - name: DOCKER_USERNAME
+          valueFrom:
+            secretKeyRef:
+              name: dockerhub-secret
+              key: username
+        - name: DOCKER_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: dockerhub-secret
+              key: password
+      script: |
+        #!/bin/sh
+        set -e
+
+        SRC="docker://$(params.image_temp_repo):$(params.image_tag)"
+        DEST="docker://$(params.image_repo):$(params.image_tag)"
+
+        echo "🚀 Promoting image"
+        echo "FROM: $SRC"
+        echo "TO:   $DEST"
+
+        skopeo copy \
+          --src-creds "$DOCKER_USERNAME:$DOCKER_PASSWORD" \
+          --dest-creds "$DOCKER_USERNAME:$DOCKER_PASSWORD" \
+          $SRC $DEST
+
+        echo "✅ Image promoted successfully"
+
+    # ✅ Delete temp image from Docker Hub
+    - name: delete-temp-image
+      image: curlimages/curl:8.3.0
+      env:
+        - name: DOCKER_USERNAME
+          valueFrom:
+            secretKeyRef:
+              name: dockerhub-secret
+              key: username
+        - name: DOCKER_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: dockerhub-secret
+              key: password
+      script: |
+        #!/bin/sh
+        set -e
+
+        USER="$DOCKER_USERNAME"
+        PASS="$DOCKER_PASSWORD"
+
+        REPO=$(echo $(params.image_temp_repo) | cut -d'/' -f2)
+        TAG=$(params.image_tag)
+
+        echo "🔐 Fetching Docker Hub token..."
+
+        TOKEN=$(curl -s -X POST https://hub.docker.com/v2/users/login/ \
+          -H "Content-Type: application/json" \
+          -d "{\"username\": \"$USER\", \"password\": \"$PASS\"}" \
+          | sed -n 's/.*"token":"\([^"]*\)".*/\1/p')
+
+        if [ -z "$TOKEN" ]; then
+          echo "❌ Failed to get token"
+          exit 1
+        fi
+
+        echo "🗑 Deleting temp image: $USER/$REPO:$TAG"
+
+        STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
+          -X DELETE \
+          -H "Authorization: Bearer $TOKEN" \
+          https://hub.docker.com/v2/repositories/$USER/$REPO/tags/$TAG/)
+
+        if [ "$STATUS" = "204" ]; then
+          echo "✅ Temp image deleted"
+        else
+          echo "⚠️ Delete returned status $STATUS"
+        fi
