@@ -31,3 +31,11 @@ spec:
           resources:
             requests:
               storage: 1Gi
+    - name: trivy-cache                    
+      volumeClaimTemplate:
+        spec:
+          accessModes:
+            - ReadWriteOnce
+          resources:
+            requests:
+              storage: 1Gi

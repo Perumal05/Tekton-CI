@@ -18,6 +18,7 @@ spec:
 
   workspaces:
     - name: shared-workspace
+    - name: trivy-cache
 
   tasks:
 
@@ -57,39 +58,41 @@ spec:
         - name: source
           workspace: shared-workspace
 
-    # - name: unit-test
-    #   runAfter:
-    #     - maven-build
-    #   taskRef:
-    #     name: unit-test-task
-    #   workspaces:
-    #     - name: source
-    #       workspace: shared-workspace
+    - name: unit-test
+      runAfter:
+        - maven-build
+      taskRef:
+        name: unit-test-task
+      workspaces:
+        - name: source
+          workspace: shared-workspace
 
-    # - name: sonar-scan
-    #   runAfter:
-    #     - unit-test
-    #   taskRef:
-    #     name: sonar-scan-task
-    #   workspaces:
-    #     - name: source
-    #       workspace: shared-workspace
+    - name: sonar-scan
+      runAfter:
+        - unit-test
+      taskRef:
+        name: sonar-scan-task
+      workspaces:
+        - name: source
+          workspace: shared-workspace
 
-    # - name: trivy-fs-scan
-    #   runAfter:
-    #     - sonar-scan
-    #   taskRef:
-    #     name: trivy-fs-scan-task
-    #   params:
-    #     - name: severity
-    #       value: $(params.severity)
-    #   workspaces:
-    #     - name: source
-    #       workspace: shared-workspace
+    - name: trivy-fs-scan
+      runAfter:
+        - sonar-scan
+      taskRef:
+        name: trivy-fs-scan-task
+      params:
+        - name: severity
+          value: $(params.severity)
+      workspaces:
+        - name: source
+          workspace: shared-workspace
+        - name: trivy-cache
+          workspace: trivy-cache 
 
     - name: generate-java-dockerfile
       runAfter:
-        - maven-build
+        - trivy-fs-scan
       taskRef:
         name: generate-java-dockerfile-task
       workspaces:
@@ -122,6 +125,27 @@ spec:
           value: $(params.image_temp_repo)
         - name: image_tag
           value: $(tasks.clone-repo.results.short-commit)
+        - name: severity
+          value: $(params.severity)
       workspaces:
-        - name: source
-          workspace: shared-workspace
+        # - name: source
+        #   workspace: shared-workspace
+        - name: trivy-cache
+          workspace: trivy-cache 
+
+    - name: push-image
+      runAfter:
+        - container-scan
+      taskRef:
+        name: promote-final-image-task
+      params:
+        - name: image_repo
+          value: $(params.image_repo)
+        - name: image_temp_repo
+          value: $(params.image_temp_repo)
+        - name: image_tag
+          value: $(tasks.clone-repo.results.short-commit)
+      # workspaces:
+      #   - name: source
+      #     workspace: shared-workspace
+

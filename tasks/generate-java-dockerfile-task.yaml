@@ -6,6 +6,10 @@ spec:
   workspaces:
     - name: source
 
+  results:
+    - name: port
+      description: "Detected port of the Java application"
+
   steps:
     - name: detect-and-generate
       image: alpine:3.19
@@ -27,15 +31,12 @@ spec:
           BUILD_TOOL="maven"
           ARTIFACT_PATH="target"
           echo "Detected Maven project"
-
-          # Try to detect Java version
           JAVA_VERSION=$(grep -oPm1 "(?<=<maven.compiler.target>)[^<]+" pom.xml || echo "21")
 
         elif [ -f build.gradle ] || [ -f build.gradle.kts ]; then
           BUILD_TOOL="gradle"
           ARTIFACT_PATH="build/libs"
           echo "Detected Gradle project"
-
           JAVA_VERSION=$(grep -oP "sourceCompatibility\s*=\s*['\"]?\K[0-9]+" build.gradle 2>/dev/null || echo "21")
 
         else
@@ -43,12 +44,10 @@ spec:
           exit 1
         fi
 
-
         # Detect WAR packaging
         if ls $ARTIFACT_PATH/*.war 1> /dev/null 2>&1; then
           ARTIFACT_TYPE="war"
         fi
-
 
         # Detect Spring Boot port
         if [ -f src/main/resources/application.properties ]; then
@@ -59,7 +58,6 @@ spec:
           PORT=$(grep -A1 "server:" src/main/resources/application.yml | grep port | awk '{print $2}' || echo "8080")
         fi
 
-
         echo "-----------------------------------"
         echo "Build Tool : $BUILD_TOOL"
         echo "Artifact   : $ARTIFACT_TYPE"
@@ -67,36 +65,46 @@ spec:
         echo "Port       : $PORT"
         echo "-----------------------------------"
 
+        # Save port as task result for downstream tasks
+        echo $PORT > $(results.port.path)
 
         if [ -f Dockerfile ]; then
-          echo "Dockerfile already exists"
+          echo "⚠️ Dockerfile already exists. Skipping generation."
+          cat Dockerfile
           exit 0
         fi
 
-        echo "⚙️ Generating Dockerfile..."
+        echo "⚙️ Generating secure & lightweight Dockerfile..."
 
-
-        # WAR deployment
         if [ "$ARTIFACT_TYPE" = "war" ]; then
-
         cat <<EOF > Dockerfile
-        FROM tomcat:10.1-jdk${JAVA_VERSION}
+        FROM tomcat:10.1-jre${JAVA_VERSION}
+        RUN apt-get update && apt-get upgrade -y && rm -rf /var/lib/apt/lists/*
         COPY ${ARTIFACT_PATH}/*.war /usr/local/tomcat/webapps/app.war
         EXPOSE ${PORT}
+        HEALTHCHECK --interval=10s --timeout=5s --start-period=10s --retries=3 \
+          CMD curl -f http://localhost:${PORT}/ || exit 1
         CMD ["catalina.sh","run"]
         EOF
 
         else
-
         cat <<EOF > Dockerfile
-        FROM eclipse-temurin:${JAVA_VERSION}-jre
+        FROM eclipse-temurin:${JAVA_VERSION}-jre-alpine
+        RUN apk update && apk upgrade --no-cache
         WORKDIR /app
         COPY ${ARTIFACT_PATH}/*.jar app.jar
         EXPOSE ${PORT}
+        HEALTHCHECK --interval=10s --timeout=5s --start-period=10s --retries=3 \
+          CMD curl -f http://localhost:${PORT}/actuator/health || exit 1
         ENTRYPOINT ["java","-jar","/app/app.jar"]
         EOF
-
         fi
 
-
         echo "✅ Dockerfile generated successfully"
+        echo "📄 Generated Dockerfile:"
+        echo "-----------------------------------"
+        cat Dockerfile
+        echo "-----------------------------------"
+
+
+

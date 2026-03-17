@@ -4,7 +4,8 @@ metadata:
   name: trivy-fs-scan-task
 spec:
   workspaces:
-    - name: source
+    # - name: source
+    - name: trivy-cache   # optional cache workspace
 
   params:
     - name: severity
@@ -14,12 +15,16 @@ spec:
   steps:
     - name: trivy-scan
       image: aquasec/trivy:latest
-      workingDir: /workspace/source
+      # workingDir: /workspace/source
+      env:
+        - name: TRIVY_CACHE_DIR
+          value: /workspace/trivy-cache
       script: |
         #!/bin/sh
         set -e
 
         echo "Starting Trivy filesystem scan..."
+        echo "Using Trivy cache: $TRIVY_CACHE_DIR"
 
         trivy fs \
           --severity $(params.severity) \
@@ -27,4 +32,4 @@ spec:
           --no-progress \
           .
 
-        echo "Trivy scan completed"
+        echo "✅ Trivy filesystem scan completed"
