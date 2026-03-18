@@ -1,23 +1,147 @@
-# 🚀 Tekton CI Setup (Local KIND Cluster)
+# 🚀 End-to-End Tekton CI Pipeline (DevSecOps Enabled)
 
-This guide helps you set up and run a Tekton-based CI pipeline locally using Kubernetes (KIND), with optional GitHub webhook triggering.
-
----
-
-## 📦 Prerequisites
-
-* Kubernetes cluster (KIND or any local cluster)
-* Tekton Pipelines installed
-* Tekton Triggers installed
-* kubectl configured
-* ngrok (for webhook exposure)
-* GitHub repository
+> ⚡ This project demonstrates a complete **DevSecOps CI pipeline using Tekton**, including SAST, SCA, container scanning, and secure image promotion to a private DockerHub registry.
 
 ---
 
-## 🏗️ Namespace Setup
+## 📌 Overview
 
-Create namespace (if not already created):
+This project implements an **end-to-end CI pipeline on Kubernetes using Tekton**, starting from source code commit to building, scanning, and securely pushing a container image.
+
+The pipeline is:
+
+* 🔁 Triggered via **GitHub Webhooks**
+* 🌐 Exposed locally using **ngrok**
+* ⚙️ Executed on a **Kind Kubernetes cluster**
+
+---
+
+## 🔥 Key Features
+
+* Tekton Pipelines & Triggers (Cloud-native CI)
+* Maven build & unit testing
+* SonarCloud SAST scanning
+* Trivy filesystem (SCA) & container scanning
+* Docker image build using Kaniko
+* Secure image promotion using Skopeo
+* Private DockerHub registry integration
+* Webhook-based automation using ngrok
+
+---
+
+## 🏗️ Project Structure
+
+```bash
+.
+├── README.md
+├── docs/
+│   ├── 01-architecture.md
+│   ├── 02-prerequisites.md
+│   ├── 03-tekton-installation.md
+│   ├── 04-dashboard-access.md
+│   ├── 05-pipeline-overview.md
+│   ├── 06-tasks-explained.md
+│   ├── 07-secrets-setup.md
+│   ├── 08-triggers-webhook.md
+│   ├── 09-execution-guide.md
+│   ├── 10-troubleshooting.md
+│   └── 11-results-and-screenshots.md
+├── pipeline.yaml
+├── pipelinerun.yaml
+├── tasks/
+├── triggers/
+```
+
+---
+
+## 🏗️ Architecture
+
+![Architecture](docs/assets/pipeline.png)
+
+---
+
+## 🔄 Pipeline Flow
+
+```text
+Clone Repo 
+   ↓
+Maven Build 
+   ↓
+Unit Tests 
+   ↓
+SonarCloud Scan (SAST)
+   ↓
+Trivy FS Scan (SCA)
+   ↓
+Generate Dockerfile
+   ↓
+Build Image (Kaniko → Temp Repo)
+   ↓
+Container Scan
+   ↓
+Promote Image (Temp → Final Repo)
+```
+
+---
+
+## 📸 Execution Highlights
+
+### 🔹 Task Logs
+
+| Task                | Screenshot                                    |
+| ------------------- | --------------------------------------------- |
+| Clone Repo          | ![](docs/assets/clone-repo.png)               |
+| Maven Build         | ![](docs/assets/maven-build.png)              |
+| Unit Tests          | ![](docs/assets/unit-test.png)                |
+| Sonar Scan          | ![](docs/assets/sonar-scan.png)               |
+| Trivy FS Scan       | ![](docs/assets/trivy-fs-scan.png)            |
+| Generate Dockerfile | ![](docs/assets/generate-java-dockerfile.png) |
+| Build Image         | ![](docs/assets/build-image.png)              |
+| Container Scan      | ![](docs/assets/container-scan.png)           |
+| Push Image          | ![](docs/assets/push-image.png)               |
+
+---
+
+## 📊 Dashboards
+
+### 🔹 SonarCloud
+
+![Sonar](docs/assets/sonar-scan-dashboard.png)
+
+### 🔹 DockerHub
+
+![DockerHub](docs/assets/dockerhub-dashboard.png)
+
+---
+
+## ⚙️ Tech Stack
+
+* Kubernetes (Kind)
+* Tekton Pipelines & Triggers
+* Maven (Java)
+* SonarCloud (SAST)
+* Trivy (SCA + Image Scan)
+* Kaniko (Image Build)
+* Skopeo (Image Promotion)
+* DockerHub (Private Registry)
+* ngrok (Webhook Exposure)
+
+---
+
+## 🚀 Quick Start
+
+### 1️⃣ Install Tekton
+
+```bash
+kubectl apply --filename https://storage.googleapis.com/tekton-releases/pipeline/latest/release.yaml
+kubectl apply --filename https://storage.googleapis.com/tekton-releases/triggers/latest/release.yaml
+kubectl apply --filename https://storage.googleapis.com/tekton-releases/triggers/latest/interceptors.yaml
+kubectl apply --filename https://infra.tekton.dev/tekton-releases/dashboard/latest/release-full.yaml
+```
+
+---
+
+### 2️⃣ Setup Namespace
 
 ```bash
 kubectl create namespace java-pipeline
@@ -25,201 +149,78 @@ kubectl create namespace java-pipeline
 
 ---
 
-## ⚙️ Step 1: Apply Core CI Resources
-
-Apply tasks:
+### 3️⃣ Apply Pipeline
 
 ```bash
 kubectl apply -f ./tasks -n java-pipeline
-```
-
-Apply pipeline:
-
-```bash
 kubectl apply -f ./pipeline.yaml -n java-pipeline
 ```
 
 ---
 
-## ▶️ Step 2: Run Pipeline Manually (Optional)
-
-If you are NOT using triggers:
+### 4️⃣ Run Pipeline (Manual)
 
 ```bash
 kubectl apply -f ./pipelinerun.yaml -n java-pipeline
-```
-
-Check status:
-
-```bash
 kubectl get pipelineruns -n java-pipeline
 ```
 
 ---
 
-## 🔐 Step 3: Setup RBAC for Triggers
-
-Create ServiceAccount:
+### 5️⃣ Enable Webhook Trigger
 
 ```bash
-kubectl apply -f triggers-sa.yaml -n java-pipeline
-```
-
-Create ClusterRoleBinding:
-
-```bash
-kubectl apply -f triggers-clusterRoleBinding.yaml
-```
-
----
-
-## 🔁 Step 4: Apply Trigger Resources
-
-```bash
-kubectl apply -f triggerbinding.yaml -n java-pipeline
-kubectl apply -f triggertemplate.yaml -n java-pipeline
-kubectl apply -f eventlistener.yaml -n java-pipeline
-```
-
----
-
-## 🔍 Step 5: Verify EventListener
-
-```bash
-kubectl get pods -n java-pipeline
-```
-
-Expected:
-
-```
-el-java-ci-listener-xxxxx
-```
-
-If not running:
-
-```bash
-kubectl describe pod <pod-name> -n java-pipeline
-```
-
----
-
-## 🌐 Step 6: Expose EventListener (KIND)
-
-```bash
+kubectl apply -f ./triggers -n java-pipeline
 kubectl port-forward svc/el-java-ci-listener 8080:8080 -n java-pipeline
-```
-
----
-
-## 🌍 Step 7: Expose via ngrok
-
-```bash
 ngrok http 8080
 ```
 
-Example output:
-
-```
-https://abc123.ngrok.io
-```
+Use the ngrok URL in your GitHub webhook.
 
 ---
 
-## 🔗 Step 8: Configure GitHub Webhook
+## 📚 Detailed Documentation
 
-Go to your GitHub repository:
+👉 Follow the step-by-step guides:
 
-**Settings → Webhooks → Add webhook**
-
-### Configure:
-
-* **Payload URL:**
-
-  ```
-  https://abc123.ngrok.io
-  ```
-
-* **Content type:**
-
-  ```
-  application/json
-  ```
-
-* **Events:**
-
-  ```
-  Just the push event
-  ```
+* [Architecture](docs/01-architecture.md)
+* [Prerequisites](docs/02-prerequisites.md)
+* [Tekton Installation](docs/03-tekton-installation.md)
+* [Dashboard Access](docs/04-dashboard-access.md)
+* [Pipeline Overview](docs/05-pipeline-overview.md)
+* [Tasks Explained](docs/06-tasks-explained.md)
+* [Secrets Setup](docs/07-secrets-setup.md)
+* [Triggers & Webhook](docs/08-triggers-webhook.md)
+* [Execution Guide](docs/09-execution-guide.md)
+* [Troubleshooting](docs/10-troubleshooting.md)
+* [Results & Screenshots](docs/11-results-and-screenshots.md)
 
 ---
 
-## 🧪 Step 9: Test the Trigger
+## 🐞 Troubleshooting (Quick)
 
-Push code to `main` branch:
-
-```bash
-git add .
-git commit -m "test trigger"
-git push origin main
-```
+* Pipeline not triggering → Check ngrok & webhook
+* Permission issues → Verify RBAC
+* Image push failure → Check DockerHub secret
+* Branch issues → Handled in clone task
 
 ---
 
-## ✅ Step 10: Verify Pipeline Execution
+## 💡 Highlights
 
-```bash
-kubectl get pipelineruns -n java-pipeline
-```
-
-Expected:
-
-```
-java-ci-run-xxxxx
-```
+* ✅ Complete **DevSecOps CI pipeline**
+* 🔐 Multi-layer security (SAST + SCA + Image Scan)
+* 🚀 Production-style image promotion strategy
+* 🌍 Real-world webhook automation
 
 ---
 
-## 🐞 Debugging
+## 👤 Author
 
-### Check EventListener logs
-
-```bash
-kubectl logs -l eventlistener=java-ci-listener -n java-pipeline
-```
+**Perumal S**
 
 ---
 
-### Watch PipelineRuns live
+## ⭐ Support
 
-```bash
-kubectl get pipelineruns -n java-pipeline -w
-```
-
----
-
-### Check Task logs
-
-```bash
-kubectl logs <pod-name> -n java-pipeline
-```
-
----
-
-## ⚠️ Common Issues
-
-### ❌ Pipeline not triggering
-
-* ngrok not running
-* wrong webhook URL
-
-### ❌ Wrong branch issue
-
-Handled inside task using branch normalization
-
-### ❌ Permission issues
-
-* Ensure ClusterRoleBinding is applied correctly
-
----
-
-Happy Building! 🔥
+If you found this useful, give it a ⭐ on GitHub!
