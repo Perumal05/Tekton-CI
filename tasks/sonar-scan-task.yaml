@@ -10,6 +10,14 @@ spec:
     - name: sonar-scan
       image: sonarsource/sonar-scanner-cli:latest
 
+      computeResources:   # ✅ FIXED HERE
+        requests:
+          memory: "1Gi"
+          cpu: "500m"
+        limits:
+          memory: "2Gi"
+          cpu: "2"
+
       env:
         - name: SONAR_TOKEN
           valueFrom:
@@ -51,3 +59,87 @@ spec:
           -Dsonar.exclusions=**/*.html,**/*.js,**/*.css
 
         echo "SonarCloud scan completed"
+
+# apiVersion: tekton.dev/v1
+# kind: Task
+# metadata:
+#   name: sonar-scan-task
+# spec:
+#   workspaces:
+#     # - name: source
+#     - name: sonar-cache
+
+#   steps:
+#     - name: sonar-scan
+#       image: sonarsource/sonar-scanner-cli:5.0
+
+#       computeResources:   # ✅ FIXED HERE
+#         requests:
+#           memory: "1Gi"
+#           cpu: "500m"
+#         limits:
+#           memory: "2Gi"
+#           cpu: "2"
+
+#       env:
+#         - name: SONAR_TOKEN
+#           valueFrom:
+#             secretKeyRef:
+#               name: sonar-config
+#               key: SONAR_TOKEN
+
+#         - name: SONAR_HOST_URL
+#           valueFrom:
+#             secretKeyRef:
+#               name: sonar-config
+#               key: SONAR_HOST_URL
+
+#         - name: SONAR_ORG
+#           valueFrom:
+#             secretKeyRef:
+#               name: sonar-config
+#               key: SONAR_ORG
+
+#         - name: SONAR_PROJECT_KEY
+#           valueFrom:
+#             secretKeyRef:
+#               name: sonar-config
+#               key: SONAR_PROJECT_KEY
+
+#       volumeMounts:
+#         - name: sonar-cache
+#           mountPath: /opt/sonar-scanner/.sonar/cache
+
+#       script: |
+#         echo "Starting SonarCloud scan..."
+
+#         cd /workspace/source
+
+#         for i in 1 2 3; do
+#           echo "Attempt $i..."
+
+#           sonar-scanner \
+#             -Dsonar.projectKey=$SONAR_PROJECT_KEY \
+#             -Dsonar.organization=$SONAR_ORG \
+#             -Dsonar.host.url=$SONAR_HOST_URL \
+#             -Dsonar.login=$SONAR_TOKEN \
+#             -Dsonar.sources=src/main/java \
+#             -Dsonar.tests=src/test/java \
+#             -Dsonar.java.binaries=target/classes \
+#             -Dsonar.exclusions=**/*.html,**/*.js,**/*.css \
+#             -Dsonar.userHome=/opt/sonar-scanner \
+#             -Dsonar.scanner.workers=2
+
+#           STATUS=$?
+
+#           if [ $STATUS -eq 0 ]; then
+#             echo "SonarCloud scan completed successfully"
+#             exit 0
+#           fi
+
+#           echo "Scan failed. Retrying..."
+#           sleep 5
+#         done
+
+#         echo "SonarCloud scan failed after retries"
+#         exit 1
