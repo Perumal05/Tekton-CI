@@ -1,0 +1,22 @@
+apiVersion: triggers.tekton.dev/v1beta1
+kind: EventListener
+metadata:
+  name: java-ci-listener
+spec:
+  serviceAccountName: tekton-triggers-sa
+
+  triggers:
+    - name: java-ci-trigger
+
+      interceptors:
+        - ref:
+            name: "cel"
+          params:
+            - name: filter
+              value: "body.ref == 'refs/heads/main'"
+
+      bindings:
+        - ref: java-ci-binding
+
+      template:
+        ref: java-ci-template

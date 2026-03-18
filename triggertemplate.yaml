@@ -1,0 +1,50 @@
+apiVersion: triggers.tekton.dev/v1beta1
+kind: TriggerTemplate
+metadata:
+  name: java-ci-template
+spec:
+  params:
+    - name: repo-url
+    - name: git-revision
+
+  resourcetemplates:
+    - apiVersion: tekton.dev/v1
+      kind: PipelineRun
+      metadata:
+        generateName: java-ci-run-
+      spec:
+        pipelineRef:
+          name: java-ci-pipeline
+
+        params:
+          - name: repo-url
+            value: $(tt.params.repo-url)
+
+          - name: git-revision
+            value: $(tt.params.git-revision)
+
+          - name: image_repo
+            value: perumal1804/springboot-app
+
+          - name: image_temp_repo
+            value: perumal1804/springboot-temporary
+
+          - name: severity
+            value: "CRITICAL"
+
+        workspaces:
+          - name: shared-workspace
+            volumeClaimTemplate:
+              spec:
+                accessModes: ["ReadWriteOnce"]
+                resources:
+                  requests:
+                    storage: 1Gi
+
+          - name: trivy-cache
+            volumeClaimTemplate:
+              spec:
+                accessModes: ["ReadWriteOnce"]
+                resources:
+                  requests:
+                    storage: 1Gi
