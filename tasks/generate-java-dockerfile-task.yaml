@@ -92,7 +92,7 @@ spec:
         FROM eclipse-temurin:${JAVA_VERSION}-jre-alpine
         RUN apk update && apk upgrade --no-cache
         WORKDIR /app
-        COPY ${ARTIFACT_PATH}/*.jar app.jar
+        COPY ${ARTIFACT_PATH}/*.jar /app/app.jar
         EXPOSE ${PORT}
         HEALTHCHECK --interval=10s --timeout=5s --start-period=10s --retries=3 \
           CMD curl -f http://localhost:${PORT}/actuator/health || exit 1

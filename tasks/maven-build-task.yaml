@@ -16,6 +16,13 @@ spec:
 
         echo "Starting Maven build..."
 
-        mvn clean compile -B
+        mvn clean package -DskipTests -B
 
         echo "Maven build completed."
+        
+    - name: verify-target-folder
+      image: busybox
+      workingDir: /workspace/source
+      script: |
+        echo "Checking target folder..."
+        ls -l target

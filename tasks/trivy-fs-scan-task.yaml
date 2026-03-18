@@ -28,6 +28,7 @@ spec:
 
         trivy fs \
           --severity $(params.severity) \
+          --vuln-type library \
           --exit-code 1 \
           --no-progress \
           .

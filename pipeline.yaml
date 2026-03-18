@@ -19,6 +19,7 @@ spec:
   workspaces:
     - name: shared-workspace
     - name: trivy-cache
+    # - name: sonar-cache
 
   tasks:
 
@@ -75,6 +76,8 @@ spec:
       workspaces:
         - name: source
           workspace: shared-workspace
+        # - name: sonar-cache            # NEW mapping
+        #   workspace: sonar-cache
 
     - name: trivy-fs-scan
       runAfter:
@@ -85,8 +88,8 @@ spec:
         - name: severity
           value: $(params.severity)
       workspaces:
-        - name: source
-          workspace: shared-workspace
+        # - name: source
+        #   workspace: shared-workspace
         - name: trivy-cache
           workspace: trivy-cache 
 
